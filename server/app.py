@@ -168,5 +168,25 @@ def upload_license():
     
     return jsonify({'status': 'success', 'message': 'License verified'}), 200
 
+@app.route('/api/users', methods=['GET'])
+def get_all_users():
+    conn = models.get_db()
+    c = conn.cursor()
+    c.execute('SELECT id, name, email, role, location, license_uploaded FROM users')
+    rows = c.fetchall()
+    conn.close()
+    
+    users = []
+    for r in rows:
+        users.append({
+            'id': r['id'],
+            'name': r['name'],
+            'email': r['email'],
+            'role': r['role'],
+            'location': r['location'],
+            'licenseUploaded': bool(r['license_uploaded'])
+        })
+    return jsonify(users)
+
 if __name__ == '__main__':
     app.run(debug=True, port=3000)

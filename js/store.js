@@ -112,6 +112,19 @@ const store = {
         }
     },
 
+    getAllUsers: async function () {
+        try {
+            const res = await fetch(`${this.API_URL}/users`);
+            if (res.ok) {
+                return await res.json();
+            }
+            return [];
+        } catch (e) {
+            console.error(e);
+            return [];
+        }
+    },
+
     uploadLicense: async function (userId) {
         try {
             const res = await fetch(`${this.API_URL}/upload-license`, {

@@ -36,7 +36,7 @@ const app = {
         }
     },
 
-    navigate: function (viewName, params = {}) {
+    navigate: async function (viewName, params = {}) {
         this.currentPage = viewName;
         this.root.innerHTML = ''; // Clear content
         window.scrollTo(0, 0);
@@ -80,6 +80,9 @@ const app = {
             case 'vehicle':
                 // params.id is passed from the navigate call
                 content = RenterViews.details(params.id);
+                break;
+            case 'admin':
+                content = await AdminViews.dashboard();
                 break;
             // Add other routes here
             default:

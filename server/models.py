@@ -35,6 +35,11 @@ def init_db():
     except sqlite3.OperationalError:
         pass # Column likely already exists
 
+    try:
+        c.execute('ALTER TABLE users ADD COLUMN license_uploaded BOOLEAN DEFAULT 0')
+    except sqlite3.OperationalError:
+        pass
+
     # Vehicles Table
     c.execute('''
         CREATE TABLE IF NOT EXISTS vehicles (
