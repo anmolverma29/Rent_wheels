@@ -210,7 +210,7 @@ const RenterViews = {
         const listItems = vehicles.map((v, index) => this._renderListCard(v, index)).join('');
 
         return `
-            <div class="fade-in" style="height: calc(100vh - 120px); display: grid; grid-template-columns: 380px 1fr; gap: 2rem; overflow: hidden;">
+            <div class="fade-in search-layout">
                 <!-- List View -->
                 <div class="glass-panel" style="overflow-y: auto; padding: 1.5rem; border-radius: var(--radius-lg); display: flex; flex-direction: column;">
                     <h2 style="margin-bottom: 1.5rem;">Available Vehicles</h2>
@@ -386,7 +386,7 @@ const RenterViews = {
                     <i data-lucide="arrow-left"></i> Back to Search
                 </button>
 
-                <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 3rem; align-items: start;">
+                <div class="details-layout">
                     <!-- Left Column: Images & Info -->
                     <div>
                         <div style="height: 400px; border-radius: var(--radius-xl); overflow: hidden; margin-bottom: 2rem; box-shadow: var(--shadow-lg);">
