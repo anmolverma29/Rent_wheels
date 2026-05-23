@@ -97,11 +97,11 @@ const SharedViews = {
                     <!-- Message Item 1 -->
                     <div class="slide-in delay-100" style="padding: 1.5rem; border-bottom: 1px solid var(--border); display: flex; gap: 1rem; align-items: center; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='rgba(0,0,0,0.02)'" onmouseout="this.style.background='transparent'">
                         <div style="width: 50px; height: 50px; border-radius: 50%; background: #e2e8f0; overflow: hidden;">
-                            <img src="https://ui-avatars.com/api/?name=Sarah+J&background=random" style="width: 100%;">
+                            <img src="https://ui-avatars.com/api/?name=Sneha+J&background=random" style="width: 100%;">
                         </div>
                         <div style="flex: 1;">
                             <div class="flex justify-between mb-1">
-                                <strong>Sarah J.</strong>
+                                <strong>Sneha J.</strong>
                                 <span class="text-xs text-muted">2 mins ago</span>
                             </div>
                             <p class="text-muted text-sm line-clamp-1">Hey! Is the car available for pickup earlier tomorrow?</p>
@@ -112,11 +112,11 @@ const SharedViews = {
                     <!-- Message Item 2 -->
                     <div class="slide-in delay-200" style="padding: 1.5rem; border-bottom: 1px solid var(--border); display: flex; gap: 1rem; align-items: center; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='rgba(0,0,0,0.02)'" onmouseout="this.style.background='transparent'">
                         <div style="width: 50px; height: 50px; border-radius: 50%; background: #e2e8f0; overflow: hidden;">
-                             <img src="https://ui-avatars.com/api/?name=Mike+R&background=random" style="width: 100%;">
+                             <img src="https://ui-avatars.com/api/?name=Manish+R&background=random" style="width: 100%;">
                         </div>
                         <div style="flex: 1;">
                             <div class="flex justify-between mb-1">
-                                <strong>Mike R.</strong>
+                                <strong>Manish R.</strong>
                                 <span class="text-xs text-muted">Yesterday</span>
                             </div>
                             <p class="text-muted text-sm text-clamp-1">Thanks for the rental! The bike was awesome.</p>
@@ -285,11 +285,12 @@ const SharedViews = {
         if (input.files && input.files[0]) {
             const user = store.getUser();
             if (!user) return;
+            const file = input.files[0];
 
-            // In a real app, we would upload the file here.
-            // For now, we just signal the backend to verify the user.
+            // Show loading state
+            alert('Uploading and verifying license... This may take a few seconds.');
 
-            store.uploadLicense(user.id).then(success => {
+            store.uploadLicense(user.id, file).then(success => {
                 if (success) {
                     alert('License verified successfully!');
                     app.navigate('profile');

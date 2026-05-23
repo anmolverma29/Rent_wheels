@@ -3,8 +3,27 @@ from flask_cors import CORS
 import models
 import auth
 import sqlite3
-
 import os
+import hmac
+import hashlib
+import json
+
+try:
+    import razorpay
+    RAZORPAY_AVAILABLE = True
+except ImportError:
+    RAZORPAY_AVAILABLE = False
+    print('WARNING: razorpay package not installed. Run: pip install razorpay')
+
+# --- Razorpay Configuration ---
+# Replace these with your actual Razorpay TEST keys from https://dashboard.razorpay.com/
+RAZORPAY_KEY_ID = 'rzp_test_Sisch1AWqwcgqE'
+RAZORPAY_KEY_SECRET = 'aDgdF5Np28rPuv5ay21yj6o4'
+
+if RAZORPAY_AVAILABLE and RAZORPAY_KEY_ID != 'YOUR_TEST_KEY_ID':
+    razorpay_client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
+else:
+    razorpay_client = None
 
 # Use absolute path for project root
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -187,6 +206,92 @@ def get_all_users():
             'licenseUploaded': bool(r['license_uploaded'])
         })
     return jsonify(users)
+
+
+@app.route('/api/create-order', methods=['POST'])
+def create_payment_order():
+    data = request.get_json()
+    amount_paise = int(data.get('totalPrice', 0)) * 100  # Convert INR to paise
+
+    if amount_paise <= 0:
+        return jsonify({'status': 'error', 'message': 'Invalid booking amount.'}), 400
+
+    # If no real Razorpay keys, return a demo order so the UI can still be tested
+    if razorpay_client is None:
+        demo_order_id = f"order_DEMO_{data.get('userId', 'x')}_{data.get('vehicleId', 'x')}"
+        return jsonify({
+            'status': 'success',
+            'order_id': demo_order_id,
+            'amount': amount_paise,
+            'key_id': RAZORPAY_KEY_ID,
+            'demo_mode': True
+        }), 200
+
+    try:
+        order_data = {
+            'amount': amount_paise,
+            'currency': 'INR',
+            'receipt': f"rw_{data.get('userId', 'x')}_{data.get('vehicleId', 'x')}"
+        }
+        order = razorpay_client.order.create(data=order_data)
+        return jsonify({
+            'status': 'success',
+            'order_id': order['id'],
+            'amount': amount_paise,
+            'key_id': RAZORPAY_KEY_ID
+        }), 200
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/api/verify-payment', methods=['POST'])
+def verify_payment():
+    data = request.get_json()
+
+    rp_order_id  = data.get('razorpay_order_id', '')
+    rp_payment_id = data.get('razorpay_payment_id', '')
+    rp_signature  = data.get('razorpay_signature', '')
+
+    # Demo mode: order id starts with 'order_DEMO_', skip real verification
+    is_demo = rp_order_id.startswith('order_DEMO_')
+
+    if not is_demo:
+        # Verify HMAC-SHA256 signature
+        msg = f"{rp_order_id}|{rp_payment_id}"
+        expected = hmac.new(
+            bytes(RAZORPAY_KEY_SECRET, 'utf-8'),
+            bytes(msg, 'utf-8'),
+            hashlib.sha256
+        ).hexdigest()
+        if expected != rp_signature:
+            return jsonify({'success': False, 'message': 'Payment signature verification failed.'}), 400
+
+    # Save booking to DB
+    conn = models.get_db()
+    c = conn.cursor()
+    try:
+        c.execute('''
+            INSERT INTO bookings (user_id, vehicle_id, start_date, end_date, total_price,
+                                  status, payment_order_id, payment_id, payment_signature)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            data.get('userId'),
+            data.get('vehicleId'),
+            data.get('startDate'),
+            data.get('endDate'),
+            data.get('totalPrice'),
+            'confirmed',
+            rp_order_id,
+            rp_payment_id,
+            rp_signature
+        ))
+        conn.commit()
+        return jsonify({'success': True, 'message': 'Booking confirmed!'}), 200
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+    finally:
+        conn.close()
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=3000)

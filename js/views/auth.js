@@ -47,7 +47,7 @@ const AuthViews = {
                     <form onsubmit="AuthViews.handleSignup(event)" class="flex flex-col gap-4">
                          <div>
                             <label class="text-sm font-bold" style="margin-bottom: 0.5rem; display: block;">Full Name</label>
-                            <input type="text" id="signup-name" class="input" placeholder="John Doe" required>
+                            <input type="text" id="signup-name" class="input" placeholder="Rahul Sharma" required>
                         </div>
                         <div>
                             <label class="text-sm font-bold" style="margin-bottom: 0.5rem; display: block;">Email</label>

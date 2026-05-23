@@ -36,9 +36,11 @@ const RenterViews = {
                             <button class="btn btn-primary" style="padding: 1rem 2.5rem; font-size: 1.15rem; box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.4);" onclick="app.navigate('search')">
                                 Explore All Vehicles
                             </button>
+                            ${store.getUser() ? `
                             <button class="btn btn-outline" style="padding: 1rem 2rem; font-size: 1.15rem; background: rgba(255,255,255,0.8); border: 1px solid white; backdrop-filter: blur(4px); color: #0f172a;" onclick="app.navigate('search')">
                                 <i data-lucide="map-pin" class="text-primary"></i> ${store.getVehicles().length} Vehicles Near Me
                             </button>
+                            ` : ''}
                         </div>
 
                     </div>
@@ -166,6 +168,12 @@ const RenterViews = {
                         </div>
                     </div>
                 </section>
+                <script>
+                    // Initialize Header Animation immediately after render
+                    setTimeout(() => {
+                        RenterViews.initHeroAnimation();
+                    }, 0);
+                </script>
                 ` : ''}
 
                 <!-- Authentication CTA (Visible if not logged in) -->
@@ -184,12 +192,6 @@ const RenterViews = {
                 </section>
                 ` : ''}
             </div>
-            <script>
-                // Initialize Header Animation immediately after render
-                setTimeout(() => {
-                    RenterViews.initHeroAnimation();
-                }, 0);
-            </script>
         `;
     },
 
@@ -289,9 +291,13 @@ const RenterViews = {
             }).addTo(map);
 
             vehicles.forEach(v => {
-                L.marker(v.location)
-                    .addTo(map)
-                    .bindPopup(`<b>${v.make} ${v.model}</b><br>₹${v.price}/day`);
+                const marker = L.marker(v.location).addTo(map);
+                
+                marker.bindTooltip(`<b>${v.make} ${v.model}</b><br>₹${(v.price/24).toFixed(0)}/hr`);
+                
+                marker.on('click', () => {
+                    app.navigate('vehicle', { id: v.id });
+                });
             });
         }, 100);
     },
@@ -432,14 +438,14 @@ const RenterViews = {
                             </div>
                             <div style="border-bottom: 1px solid var(--border); padding-bottom: 1rem; margin-bottom: 1rem;">
                                 <div class="flex justify-between" style="margin-bottom: 0.5rem;">
-                                    <strong>Alex M.</strong>
+                                    <strong>Aakash M.</strong>
                                     <span class="text-muted text-sm">2 days ago</span>
                                 </div>
                                 <p class="text-muted">Great car, very clean and smooth drive!</p>
                             </div>
                              <div>
                                 <div class="flex justify-between" style="margin-bottom: 0.5rem;">
-                                    <strong>Sarah J.</strong>
+                                    <strong>Sneha J.</strong>
                                     <span class="text-muted text-sm">1 week ago</span>
                                 </div>
                                 <p class="text-muted">Easy pickup and dropoff. Highly recommended.</p>
@@ -533,19 +539,86 @@ const RenterViews = {
         };
 
         const btn = e.target.querySelector('button[type="submit"]');
+        const originalText = btn.textContent;
         btn.disabled = true;
-        btn.textContent = 'Processing...';
+        btn.textContent = 'Initializing Payment...';
 
-        const result = await store.book(bookingData);
-
-        if (result.success) {
-            alert(`Booking Confirmed! \n\nCheck your email for details.`);
-            app.navigate('bookings');
-        } else {
-            alert('Booking failed: ' + result.message);
+        // 1. Create Order on Backend
+        const orderResponse = await store.createOrder(bookingData);
+        
+        if (orderResponse.status !== 'success') {
+            alert('Failed to initialize payment: ' + orderResponse.message);
             btn.disabled = false;
-            btn.textContent = 'Confirm Booking';
+            btn.textContent = originalText;
+            return;
         }
+
+        // 2. Open Razorpay Checkout Modal (or demo mode bypass)
+        if (orderResponse.demo_mode || !window.Razorpay) {
+            // Demo mode: no real Razorpay keys configured — simulate payment directly
+            btn.textContent = 'Confirming (Demo)...';
+            const verifyResult = await store.verifyPayment(bookingData, {
+                razorpay_order_id: orderResponse.order_id,
+                razorpay_payment_id: 'pay_DEMO_' + Date.now(),
+                razorpay_signature: 'demo_signature'
+            });
+            if (verifyResult.success) {
+                alert('✅ Booking Confirmed!\n\n(Running in Demo Mode — add real Razorpay keys to enable live payments)');
+                app.navigate('bookings');
+            } else {
+                alert('Booking failed: ' + verifyResult.message);
+                btn.disabled = false;
+                btn.textContent = originalText;
+            }
+            return;
+        }
+
+        const options = {
+            "key": orderResponse.key_id,
+            "amount": orderResponse.amount,
+            "currency": "INR",
+            "name": "RentWheels",
+            "description": "Vehicle Booking Payment",
+            "order_id": orderResponse.order_id,
+            "handler": async function (response) {
+                // 3. On successful payment, send details to backend to verify and confirm booking
+                btn.textContent = 'Verifying...';
+                
+                const verifyResult = await store.verifyPayment(bookingData, response);
+                
+                if (verifyResult.success) {
+                    alert('Payment Successful & Booking Confirmed!');
+                    app.navigate('bookings');
+                } else {
+                    alert('Payment verification failed: ' + verifyResult.message);
+                    btn.disabled = false;
+                    btn.textContent = originalText;
+                }
+            },
+            "prefill": {
+                "name": user.name,
+                "email": user.email
+            },
+            "theme": {
+                "color": "#2563eb"
+            },
+            "modal": {
+                "ondismiss": function() {
+                    btn.disabled = false;
+                    btn.textContent = originalText;
+                }
+            }
+        };
+
+        const rzp = new window.Razorpay(options);
+        
+        rzp.on('payment.failed', function (response){
+            alert("Payment Failed: " + response.error.description);
+            btn.disabled = false;
+            btn.textContent = originalText;
+        });
+        
+        rzp.open();
     },
 
     _renderCard: function (vehicle, index = 0) {

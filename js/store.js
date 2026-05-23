@@ -125,15 +125,18 @@ const store = {
         }
     },
 
-    uploadLicense: async function (userId) {
+    uploadLicense: async function (userId, file) {
         try {
+            const formData = new FormData();
+            formData.append('userId', userId);
+            formData.append('file', file);
+
             const res = await fetch(`${this.API_URL}/upload-license`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId })
+                body: formData // No Content-Type header so browser sets multipart boundary
             });
             if (res.ok) {
-                // Update local state
+                // Keep UI synced for prototype
                 this.state.user.licenseUploaded = true;
                 localStorage.setItem('rw_user', JSON.stringify(this.state.user));
                 return true;
@@ -142,6 +145,39 @@ const store = {
         } catch (e) {
             console.error(e);
             return false;
+        }
+    },
+
+    createOrder: async function (bookingData) {
+        try {
+            const res = await fetch(`${this.API_URL}/create-order`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(bookingData)
+            });
+            return await res.json();
+        } catch (e) {
+            console.error(e);
+            return { status: 'error', message: 'Network error while creating order.' };
+        }
+    },
+
+    verifyPayment: async function (bookingData, paymentData) {
+        try {
+            const res = await fetch(`${this.API_URL}/verify-payment`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ...bookingData,
+                    razorpay_order_id: paymentData.razorpay_order_id,
+                    razorpay_payment_id: paymentData.razorpay_payment_id,
+                    razorpay_signature: paymentData.razorpay_signature
+                })
+            });
+            return await res.json();
+        } catch (e) {
+            console.error(e);
+            return { success: false, message: 'Network error during payment verification.' };
         }
     }
 };

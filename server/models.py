@@ -3,9 +3,11 @@ import json
 
 import os
 
-# Use absolute path for database to avoid issues on PythonAnywhere
+# On Render, use the persistent disk at /var/data; otherwise use local directory
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_NAME = os.path.join(BASE_DIR, 'database.db')
+PERSISTENT_DIR = '/var/data' if os.path.exists('/var/data') else BASE_DIR
+DB_NAME = os.path.join(PERSISTENT_DIR, 'database.db')
+
 
 def get_db():
     conn = sqlite3.connect(DB_NAME)
@@ -74,10 +76,20 @@ def init_db():
             end_date TEXT,
             total_price INTEGER,
             status TEXT DEFAULT 'confirmed',
+            payment_order_id TEXT,
+            payment_id TEXT,
+            payment_signature TEXT,
             FOREIGN KEY(user_id) REFERENCES users(id),
             FOREIGN KEY(vehicle_id) REFERENCES vehicles(id)
         )
     ''')
+
+    # Migration: add payment columns to existing bookings table
+    for col in ['payment_order_id TEXT', 'payment_id TEXT', 'payment_signature TEXT']:
+        try:
+            c.execute(f'ALTER TABLE bookings ADD COLUMN {col}')
+        except sqlite3.OperationalError:
+            pass  # Column already exists
 
     conn.commit()
     conn.close()
@@ -95,22 +107,43 @@ def seed_data():
     # Seed Vehicles
     vehicles = [
         # Bangalore
-        ('Mahindra', 'Thar 4x4', 2023, 1200, 'https://images.unsplash.com/photo-1669280614830-6d246c764c58?q=80&w=800&auto=format&fit=crop', 4.9, 42, 12.9716, 77.5946, 'car', 'Bangalore'),
-        ('Tata', 'Nexon EV', 2024, 950, 'https://images.unsplash.com/photo-1696580436068-0199f7d24248?q=80&w=800&auto=format&fit=crop', 4.8, 24, 12.9279, 77.6271, 'zap', 'Bangalore'),
-        ('Ather', '450X', 2024, 350, 'https://images.unsplash.com/photo-1675762695328-8742469d80fe?q=80&w=800&auto=format&fit=crop', 4.9, 45, 12.9081, 77.6476, 'bike', 'Bangalore'),
+        ('Mahindra', 'Thar 4x4', 2023, 1200, '/assets/vehicles/thar.png', 4.9, 42, 12.9716, 77.5946, 'car', 'Bangalore'),
+        ('Tata', 'Nexon EV', 2024, 950, '/assets/vehicles/nexon.png', 4.8, 24, 12.9279, 77.6271, 'zap', 'Bangalore'),
+        ('Ather', '450X', 2024, 350, '/assets/vehicles/ather.png', 4.9, 45, 12.9081, 77.6476, 'bike', 'Bangalore'),
         
         # Delhi
-        ('Maruti Suzuki', 'Swift', 2022, 800, 'https://images.unsplash.com/photo-1549520478-43e5c9cd46df?q=80&w=800&auto=format&fit=crop', 4.7, 89, 28.6139, 77.2090, 'car', 'Delhi'),
-        ('Royal Enfield', 'Himalayan', 2023, 600, 'https://images.unsplash.com/photo-1624622791866-e3d6411516f4?q=80&w=800&auto=format&fit=crop', 4.8, 30, 28.5244, 77.1855, 'bike', 'Delhi'),
-        ('MG', 'ZS EV', 2023, 1500, 'https://images.unsplash.com/photo-1696580436068-0199f7d24248?q=80&w=800&auto=format&fit=crop', 4.9, 15, 28.6328, 77.2197, 'zap', 'Delhi'),
+        ('Maruti Suzuki', 'Swift', 2022, 800, '/assets/vehicles/swift.png', 4.7, 89, 28.6139, 77.2100, 'car', 'Delhi'),
+        ('Royal Enfield', 'Himalayan', 2023, 600, '/assets/vehicles/himalayan.png', 4.8, 30, 28.5244, 77.1855, 'bike', 'Delhi'),
+        ('MG', 'ZS EV', 2023, 1500, '/assets/vehicles/zsev.png', 4.9, 15, 28.6328, 77.2197, 'zap', 'Delhi'),
         
         # Mumbai
-        ('Hyundai', 'Creta', 2023, 1100, 'https://images.unsplash.com/photo-1628867341235-98522e861c8a?q=80&w=800&auto=format&fit=crop', 4.8, 67, 19.0760, 72.8777, 'car', 'Mumbai'),
-        ('Honda', 'City', 2023, 1000, 'https://images.unsplash.com/photo-1549520478-43e5c9cd46df?q=80&w=800&auto=format&fit=crop', 4.6, 55, 19.0558, 72.8546, 'car', 'Mumbai'),
-        ('Ola', 'S1 Pro', 2024, 300, 'https://images.unsplash.com/photo-1675762695328-8742469d80fe?q=80&w=800&auto=format&fit=crop', 4.5, 78, 19.1136, 72.8697, 'zap', 'Mumbai')
+        ('Hyundai', 'Creta', 2023, 1100, '/assets/vehicles/creta.png', 4.8, 67, 19.0760, 72.8777, 'car', 'Mumbai'),
+        ('Honda', 'City', 2023, 1000, '/assets/vehicles/hondacity.png', 4.6, 55, 19.0558, 72.8546, 'car', 'Mumbai'),
+        ('Ola', 'S1 Pro', 2024, 300, '/assets/vehicles/ola.png', 4.5, 78, 19.1136, 72.8697, 'zap', 'Mumbai'),
+        
+        # More Vehicles (Bangalore)
+        ('Toyota', 'Fortuner', 2023, 2500, '/assets/vehicles/fortuner.png', 4.9, 15, 12.9352, 77.6245, 'car', 'Bangalore'),
+        ('KTM', 'Duke 390', 2023, 800, '/assets/vehicles/duke.png', 4.8, 56, 12.9250, 77.5891, 'bike', 'Bangalore'),
+
+        # More Vehicles (Delhi)
+        ('Hyundai', 'Verna', 2023, 1100, '/assets/vehicles/verna.png', 4.7, 34, 28.5355, 77.3910, 'car', 'Delhi'),
+        ('Royal Enfield', 'Classic 350', 2022, 700, '/assets/vehicles/classic350.png', 4.6, 92, 28.7041, 77.1025, 'bike', 'Delhi'),
+
+        # More Vehicles (Mumbai)
+        ('Mahindra', 'XUV700', 2024, 2200, '/assets/vehicles/xuv700.png', 4.9, 21, 19.2183, 72.9781, 'car', 'Mumbai'),
+        ('TVS', 'Apache RR310', 2023, 900, '/assets/vehicles/apache.png', 4.8, 41, 19.0760, 72.8777, 'bike', 'Mumbai')
     ]
 
     c.executemany('INSERT INTO vehicles (make, model, year, price, image, rating, trips, lat, lng, type, city) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', vehicles)
+    
+    # Seed Admin User
+    admin_email = 'admin@rentwheels.com'
+    c.execute('SELECT id FROM users WHERE email = ?', (admin_email,))
+    if not c.fetchone():
+        # In a real app, hash this password!
+        c.execute('INSERT INTO users (name, email, password, role, location) VALUES (?, ?, ?, ?, ?)', 
+                  ('Amit Kumar', admin_email, 'admin123', 'admin', 'Headquarters'))
+        print("Admin user created: admin@rentwheels.com / admin123")
     
     conn.commit()
     conn.close()

@@ -23,6 +23,10 @@ const app = {
                 <a href="#" class="nav-link" onclick="app.navigate('messages')" title="Messages">
                     <i data-lucide="message-square" style="width:20px;"></i>
                 </a>
+                ${user.role === 'admin' ? `
+                <a href="#" class="nav-link" onclick="app.navigate('admin')" title="Admin Dashboard">
+                    <i data-lucide="shield" style="width:20px;"></i> Admin
+                </a>` : ''}
                 <a href="#" class="nav-link" onclick="app.navigate('profile')">
                     <i data-lucide="user" style="width:18px;"></i> ${user.name}
                 </a>
